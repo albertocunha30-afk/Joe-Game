@@ -111,4 +111,45 @@ index 0000000..0000000 100644
 @@ -1,3 +1,5 @@
 +<!-- script added: wasd-controls.js -->
 +<script src="wasd-controls.js"></script>
- </body>
+ </body
+ window.Input = {
+  keys: {},
+  x: 0,
+  y: 0,
+  debug: false, // set true to get console logs
+  init: function() {
+    const onDown = (e) => {
+      const k = e.key.toLowerCase();
+      if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright'].includes(k)) {
+        this.keys[k] = true;
+        if (this.debug) console.log('Input: keydown', k, this.keys);
+        e.preventDefault();
+      }
+    };
+    const onUp = (e) => {
+      const k = e.key.toLowerCase();
+      if (this.keys[k]) {
+        this.keys[k] = false;
+        if (this.debug) console.log('Input: keyup', k, this.keys);
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('keydown', onDown, { passive: false });
+    window.addEventListener('keyup', onUp, { passive: false });
+  },
+  update: function() {
+    const left = this.keys['a'] || this.keys['arrowleft'];
+    const right = this.keys['d'] || this.keys['arrowright'];
+    const up = this.keys['w'] || this.keys['arrowup'];
+    const down = this.keys['s'] || this.keys['arrowdown'];
+    this.x = (right ? 1 : 0) - (left ? 1 : 0);
+    this.y = (down ? 1 : 0) - (up ? 1 : 0);
+    if (this.x !== 0 && this.y !== 0) {
+      const inv = 1 / Math.sqrt(2);
+      this.x *= inv; this.y *= inv;
+    }
+    if (this.debug) console.log('Input.update ->', {x: this.x, y: this.y});
+  }
+};
+Input.init();
+
