@@ -1329,5 +1329,63 @@ self.C3_ExpressionFuncs = [
 ];
 
 
+
 }
 
+
+// --- WASD -> Arrow keys mapping (added)
+// Maps WASD keydown/keyup to ArrowUp/ArrowLeft/ArrowDown/ArrowRight so existing
+// runtime input handlers continue to work. It ignores events coming from text inputs.
+(function(){
+  const WASD_TO_ARROW = {
+    KeyW: { key: "ArrowUp", code: "ArrowUp", keyCode: 38 },
+    KeyA: { key: "ArrowLeft", code: "ArrowLeft", keyCode: 37 },
+    KeyS: { key: "ArrowDown", code: "ArrowDown", keyCode: 40 },
+    KeyD: { key: "ArrowRight", code: "ArrowRight", keyCode: 39 }
+  };
+
+  function isTypingTarget(target) {
+    if (!target) return false;
+    const tag = target.tagName;
+    if (!tag) return false;
+    if (tag === "INPUT" || tag === "TEXTAREA") return true;
+    if (target.isContentEditable) return true;
+    return false;
+  }
+
+  function forwardWASDAsArrow(evt) {
+    const map = WASD_TO_ARROW[evt.code];
+    if (!map) return; // not WASD
+    if (isTypingTarget(evt.target)) return; // don't interfere with typing fields
+
+    // Prevent the original WASD event being handled directly by listeners,
+    // then dispatch an equivalent Arrow key event instead.
+    try { evt.preventDefault?.(); } catch (e) {}
+
+    const newEvt = new KeyboardEvent(evt.type, {
+      key: map.key,
+      code: map.code,
+      location: evt.location,
+      repeat: evt.repeat,
+      ctrlKey: evt.ctrlKey,
+      shiftKey: evt.shiftKey,
+      altKey: evt.altKey,
+      metaKey: evt.metaKey,
+      bubbles: true,
+      cancelable: true
+    });
+
+    // Some older listeners read keyCode/which; attempt to expose them (readonly on some browsers).
+    try {
+      Object.defineProperty(newEvt, "keyCode", { get: () => map.keyCode });
+      Object.defineProperty(newEvt, "which", { get: () => map.keyCode });
+    } catch (e) {
+      // ignore if properties can't be defined
+    }
+
+    window.dispatchEvent(newEvt);
+  }
+
+  window.addEventListener("keydown", forwardWASDAsArrow, true);
+  window.addEventListener("keyup", forwardWASDAsArrow, true);
+})();
