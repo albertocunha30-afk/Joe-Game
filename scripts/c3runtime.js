@@ -1333,9 +1333,9 @@ self.C3_ExpressionFuncs = [
 }
 
 
-// --- WASD -> Arrow keys mapping (added)
-// Maps WASD keydown/keyup to ArrowUp/ArrowLeft/ArrowDown/ArrowRight so existing
-// runtime input handlers continue to work. It ignores events coming from text inputs.
+// --- WASD -> Arrow keys mapping (improved)
+// Maps WASD keydown/keyup to Arrow keys, while blocking the original WASD events
+// so they don't also trigger other bindings (e.g. text input or 'A' = jump).
 (function(){
   const WASD_TO_ARROW = {
     KeyW: { key: "ArrowUp", code: "ArrowUp", keyCode: 38 },
@@ -1353,39 +1353,62 @@ self.C3_ExpressionFuncs = [
     return false;
   }
 
-  function forwardWASDAsArrow(evt) {
-    const map = WASD_TO_ARROW[evt.code];
-    if (!map) return; // not WASD
-    if (isTypingTarget(evt.target)) return; // don't interfere with typing fields
-
-    // Prevent the original WASD event being handled directly by listeners,
-    // then dispatch an equivalent Arrow key event instead.
-    try { evt.preventDefault?.(); } catch (e) {}
-
-    const newEvt = new KeyboardEvent(evt.type, {
+  function makeArrowEvent(original, map) {
+    const ev = new KeyboardEvent(original.type, {
       key: map.key,
       code: map.code,
-      location: evt.location,
-      repeat: evt.repeat,
-      ctrlKey: evt.ctrlKey,
-      shiftKey: evt.shiftKey,
-      altKey: evt.altKey,
-      metaKey: evt.metaKey,
+      location: original.location,
+      repeat: original.repeat,
+      ctrlKey: original.ctrlKey,
+      shiftKey: original.shiftKey,
+      altKey: original.altKey,
+      metaKey: original.metaKey,
       bubbles: true,
       cancelable: true
     });
 
-    // Some older listeners read keyCode/which; attempt to expose them (readonly on some browsers).
+    // Some legacy handlers read keyCode/which — expose them if possible.
     try {
-      Object.defineProperty(newEvt, "keyCode", { get: () => map.keyCode });
-      Object.defineProperty(newEvt, "which", { get: () => map.keyCode });
+      Object.defineProperty(ev, "keyCode", { get: () => map.keyCode });
+      Object.defineProperty(ev, "which", { get: () => map.keyCode });
     } catch (e) {
-      // ignore if properties can't be defined
+      // ignore if properties are readonly
     }
 
-    window.dispatchEvent(newEvt);
+    return ev;
   }
 
-  window.addEventListener("keydown", forwardWASDAsArrow, true);
-  window.addEventListener("keyup", forwardWASDAsArrow, true);
+  function forwardHandler(evt) {
+    // Only handle WASD codes
+    const map = WASD_TO_ARROW[evt.code];
+    if (!map) return;
+
+    // Don't interfere when typing in an input, textarea or contenteditable
+    if (isTypingTarget(evt.target)) return;
+
+    // Respect modifier combos (don't remap when user is using Ctrl/Meta/Alt)
+    if (evt.ctrlKey || evt.metaKey || evt.altKey) return;
+
+    // Stop the original WASD event so it doesn't trigger other handlers.
+    try {
+      if (typeof evt.stopImmediatePropagation === "function") evt.stopImmediatePropagation();
+      if (typeof evt.stopPropagation === "function") evt.stopPropagation();
+      if (typeof evt.preventDefault === "function") evt.preventDefault();
+    } catch (e) {}
+
+    // For keydown/keyup: dispatch a synthetic Arrow key event so runtime input works.
+    if (evt.type === "keydown" || evt.type === "keyup") {
+      const newEvt = makeArrowEvent(evt, map);
+      // Dispatch on the same target where the original event fired, to better match handlers.
+      (evt.target || window).dispatchEvent(newEvt);
+    }
+
+    // For keypress: just block the printable character (prevents letters appearing or keypress handlers)
+    // (no synthetic keypress needed).
+  }
+
+  // Capture phase so we can intercept before other listeners.
+  window.addEventListener("keydown", forwardHandler, true);
+  window.addEventListener("keyup", forwardHandler, true);
+  window.addEventListener("keypress", forwardHandler, true);
 })();
