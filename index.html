@@ -46,4 +46,69 @@ if (location.protocol.substr(0, 4) === "file")
 	<script src="scripts/register-sw.js" type="module"></script>
 
 </body> 
+
 </html>
+diff --git a/wasd-controls.js b/wasd-controls.js
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/wasd-controls.js
+@@ -0,0 +1,52 @@
++// Simple WASD + arrow key input manager (no modules).
++// Include this file before your main game loop script.
++// Usage in your game loop:
++//   Input.update();
++//   const dx = Input.x * player.speed * dt;
++//   const dy = Input.y * player.speed * dt;
++//   player.x += dx; player.y += dy;
++
++window.Input = {
++  keys: {},
++  x: 0, // -1 left, +1 right
++  y: 0, // -1 up, +1 down
++  init: function() {
++    window.addEventListener('keydown', (e) => {
++      const k = e.key.toLowerCase();
++      if (['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright'].includes(k)) {
++        this.keys[k] = true;
++        // prevent scrolling when arrows/WASD are used
++        e.preventDefault();
++      }
++    }, { passive: false });
++
++    window.addEventListener('keyup', (e) => {
++      const k = e.key.toLowerCase();
++      if (this.keys[k]) {
++        this.keys[k] = false;
++        e.preventDefault();
++      }
++    }, { passive: false });
++  },
++  update: function() {
++    const left = this.keys['a'] || this.keys['arrowleft'];
++    const right = this.keys['d'] || this.keys['arrowright'];
++    const up = this.keys['w'] || this.keys['arrowup'];
++    const down = this.keys['s'] || this.keys['arrowdown'];
++
++    this.x = (right ? 1 : 0) - (left ? 1 : 0);
++    this.y = (down ? 1 : 0) - (up ? 1 : 0);
++
++    // normalize diagonal so speed is consistent
++    if (this.x !== 0 && this.y !== 0) {
++      const inv = 1 / Math.sqrt(2);
++      this.x *= inv;
++      this.y *= inv;
++    }
++  }
++};
++
++// Initialize immediately so Input is ready
++Input.init();
+diff --git a/index.html b/index.html
+index 0000000..0000000 100644
+--- a/index.html
++++ b/index.html
+@@ -1,3 +1,5 @@
++<!-- script added: wasd-controls.js -->
++<script src="wasd-controls.js"></script>
+ </body>
